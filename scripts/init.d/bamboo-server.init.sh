@@ -1,0 +1,144 @@
+#!/bin/bash
+#
+# bamboo-server	Start up the Bamboo server daemon
+#
+# chkconfig: 2345 80 05
+# description: Bamboo is a continuous integration server from Atlassian. \
+#              This service starts up the Bamboo server daemon.
+# processname: bamboo-server
+# pidfile: /var/run/bamboo-server.pid
+#
+### BEGIN INIT INFO
+# Provides: bamboo-server
+# Required-Start: $local_fs $remote_fs $network
+# Required-Stop: $local_fs $remote_fs $network
+# Should-Start: $syslog
+# Should-Stop: $syslog
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: Start up the Bamboo server daemon
+# Description: Bamboo is a continuous integration server from Atlassian.
+#              This service starts up the Bamboo server daemon.
+### END INIT INFO
+
+PROG='bamboo-server'
+PROG_NAME='Bamboo server'
+PROG_PS='bamboo'
+# Location of Bamboo installation directory
+PROG_INSTALL='/opt/bamboo'
+# Name of the user to run as
+PROG_USER='bamboo'
+# Startup timeout
+STARTUP_WAIT=300
+# Shutdown timeout
+SHUTDOWN_WAIT=300
+# Startup command
+STARTUP_CMD="$PROG_INSTALL/bin/start-bamboo.sh"
+# Shutdown command
+SHUTDOWN_CMD="$PROG_INSTALL/bin/stop-bamboo.sh"
+
+PIDFILE="/var/run/$PROG.pid"
+
+# Source function library.
+. /etc/init.d/functions
+
+# Source configuration if any.
+if [ -f /etc/sysconfig/$PROG ]; then
+    . /etc/sysconfig/$PROG
+fi
+
+start() {
+	echo -n $"Starting $PROG_NAME: "
+
+	if status -p $PIDFILE $PROG > /dev/null; then
+		echo -n $"$PROG_NAME is already running"
+		failure
+		echo
+		return 1
+	fi
+
+	rm -f $PROG_INSTALL/logs/catalina.out
+	su - $PROG_USER -c "$STARTUP_CMD >/dev/null 2>&1 &"
+
+	TIMEOUT="$STARTUP_WAIT"
+	TMP_COUNT=0
+	while [ $TIMEOUT -gt 0 ]; do
+		grep 'Server startup in' $PROG_INSTALL/logs/catalina.out >/dev/null 2>&1 && break
+		sleep 1
+		let TIMEOUT=$TIMEOUT-1
+		let TMP_COUNT=$TMP_COUNT+1
+		if [ $TMP_COUNT -gt 5 ]; then
+			echo -n $'.'
+			TMP_COUNT=0
+		fi
+	done
+
+	if [ $TIMEOUT -le 0 ]; then
+        echo -n $"Timeout error occurred while $PROG_NAME startup."
+        failure
+        echo
+        return 1
+    else
+    	pgrep -fl $PROG_PS | grep 'java' | awk '{print $1}' > $PIDFILE
+		success
+		echo
+		return 0
+    fi
+}
+
+stop() {
+	echo -n $"Stopping $PROG_NAME: "
+
+	if ! status -p $PIDFILE $PROG > /dev/null; then
+		echo -n $"$PROG_NAME is not running"
+		failure
+		echo
+		return 1
+	fi
+
+	su - $PROG_USER -c "$SHUTDOWN_CMD >/dev/null 2>&1 &"
+
+	TIMEOUT="$SHUTDOWN_WAIT"
+	TMP_COUNT=0
+	while [ $TIMEOUT -gt 0 ]; do
+		grep 'Calling System.exit()' $PROG_INSTALL/logs/catalina.out >/dev/null 2>&1 && break
+		sleep 1
+		let TIMEOUT=$TIMEOUT-1
+		let TMP_COUNT=$TMP_COUNT+1
+		if [ $TMP_COUNT -gt 5 ]; then
+			echo -n $'.'
+			TMP_COUNT=0
+		fi
+	done
+
+	if [ $TIMEOUT -le 0 ]; then
+        echo -n $"Timeout error occurred while $PROG_NAME shutdown."
+        failure
+        echo
+        return 1
+    else
+    	rm -f $PIDFILE
+		success
+		echo
+		return 0
+    fi
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart)
+		stop && sleep 10 && start
+    	;;
+    status)
+    	status -p $PIDFILE $PROG
+    	;;
+    *)
+    	echo $"Usage: $0 {start|stop|restart|status}"
+    	exit 2
+    	;;
+esac
