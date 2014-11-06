@@ -47,6 +47,12 @@ if [ -f /etc/sysconfig/$PROG ]; then
     . /etc/sysconfig/$PROG
 fi
 
+if [ -x "/sbin/runuser" ]; then
+	SUCMD="/sbin/runuser"
+else
+	SUCMD="su"
+fi
+
 start() {
 	echo -n $"Starting $PROG_NAME: "
 
@@ -58,7 +64,7 @@ start() {
 	fi
 
 	rm -f $PROG_INSTALL/logs/catalina.out
-	su - $PROG_USER -c "$STARTUP_CMD >/dev/null 2>&1 &"
+	$SUCMD - $PROG_USER -c "$STARTUP_CMD >/dev/null 2>&1 &"
 
 	TIMEOUT="$STARTUP_WAIT"
 	TMP_COUNT=0
