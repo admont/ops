@@ -1,41 +1,41 @@
 #!/bin/bash
 #
-# bamboo-server	Start up the Bamboo server daemon
+# jira-server	Start up the JIRA server daemon
 #
 # chkconfig: 2345 80 05
-# description: Bamboo is a continuous integration server from Atlassian. \
-#              This service starts up the Bamboo server daemon.
-# processname: bamboo-server
-# pidfile: /var/run/bamboo-server.pid
+# description: JIRA is a proprietary issue tracking product, developed by Atlassian. \
+#              This service starts up the JIRA server daemon.
+# processname: jira-server
+# pidfile: /var/run/jira-server.pid
 #
 ### BEGIN INIT INFO
-# Provides: bamboo-server
+# Provides: jira-server
 # Required-Start: $local_fs $remote_fs $network
 # Required-Stop: $local_fs $remote_fs $network
 # Should-Start: $syslog
 # Should-Stop: $syslog
 # Default-Start: 2 3 4 5
 # Default-Stop: 0 1 6
-# Short-Description: Start up the Bamboo server daemon
-# Description: Bamboo is a continuous integration server from Atlassian.
-#              This service starts up the Bamboo server daemon.
+# Short-Description: Start up the JIRA server daemon
+# Description: JIRA is a proprietary issue tracking product, developed by Atlassian.
+#              This service starts up the JIRA server daemon.
 ### END INIT INFO
 
-PROG='bamboo-server'
-PROG_NAME='Bamboo server'
-PROG_PS='bamboo'
-# Location of Bamboo installation directory
-PROG_INSTALL='/opt/bamboo'
+PROG='jira-server'
+PROG_NAME='JIRA server'
+PROG_PS='jira'
+# Location of JIRA installation directory
+PROG_INSTALL='/opt/jira'
 # Name of the user to run as
-PROG_USER='bamboo'
+PROG_USER='jira'
 # Startup timeout
 STARTUP_WAIT=300
 # Shutdown timeout
 SHUTDOWN_WAIT=300
 # Startup command
-STARTUP_CMD="$PROG_INSTALL/bin/start-bamboo.sh"
+STARTUP_CMD="$PROG_INSTALL/bin/start-jira.sh"
 # Shutdown command
-SHUTDOWN_CMD="$PROG_INSTALL/bin/stop-bamboo.sh"
+SHUTDOWN_CMD="$PROG_INSTALL/bin/stop-jira.sh"
 
 PIDFILE="/var/run/$PROG.pid"
 
@@ -45,6 +45,12 @@ PIDFILE="/var/run/$PROG.pid"
 # Source configuration if any.
 if [ -f /etc/sysconfig/$PROG ]; then
     . /etc/sysconfig/$PROG
+fi
+
+if [ -x "/sbin/runuser" ]; then
+	SUCMD="/sbin/runuser"
+else
+	SUCMD="su"
 fi
 
 start() {
@@ -58,7 +64,7 @@ start() {
 	fi
 
 	rm -f $PROG_INSTALL/logs/catalina.out
-	su - $PROG_USER -c "$STARTUP_CMD >/dev/null 2>&1 &"
+	$SUCMD - $PROG_USER -c "$STARTUP_CMD >/dev/null 2>&1 &"
 
 	TIMEOUT="$STARTUP_WAIT"
 	TMP_COUNT=0
@@ -96,31 +102,18 @@ stop() {
 		return 1
 	fi
 
-	su - $PROG_USER -c "$SHUTDOWN_CMD >/dev/null 2>&1 &"
+	killproc -p $PIDFILE -d $SHUTDOWN_WAIT $PROG
 
-	TIMEOUT="$SHUTDOWN_WAIT"
-	TMP_COUNT=0
-	while [ $TIMEOUT -gt 0 ]; do
-		grep 'Calling System.exit()' $PROG_INSTALL/logs/catalina.out >/dev/null 2>&1 && break
-		sleep 1
-		let TIMEOUT=$TIMEOUT-1
-		let TMP_COUNT=$TMP_COUNT+1
-		if [ $TMP_COUNT -gt 5 ]; then
-			echo -n $'.'
-			TMP_COUNT=0
-		fi
-	done
-
-	if [ $TIMEOUT -le 0 ]; then
-        echo -n $"Timeout error occurred while $PROG_NAME shutdown."
-        failure
-        echo
-        return 1
-    else
-    	rm -f $PIDFILE
+	if [ $? = 0 ]; then
+		rm -f $PIDFILE
 		success
 		echo
 		return 0
+    else
+    	echo -n $"Error occurred while $PROG_NAME shutdown."
+        failure
+        echo
+        return 1
     fi
 }
 
