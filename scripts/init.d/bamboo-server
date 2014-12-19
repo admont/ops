@@ -57,10 +57,10 @@ start() {
 	echo -n $"Starting $PROG_NAME: "
 
 	if status -p $PIDFILE $PROG > /dev/null; then
-		echo -n $"$PROG_NAME is already running"
-		failure
+		success
 		echo
-		return 1
+		echo $"$PROG_NAME is already running"
+		return 0
 	fi
 
 	rm -f $PROG_INSTALL/logs/catalina.out
@@ -80,9 +80,9 @@ start() {
 	done
 
 	if [ $TIMEOUT -le 0 ]; then
-        echo -n $"Timeout error occurred while $PROG_NAME startup."
         failure
         echo
+        echo $"Timeout error occurred while $PROG_NAME startup."
         return 1
     else
     	pgrep -fl $PROG_PS | grep 'java' | awk '{print $1}' > $PIDFILE
@@ -96,10 +96,10 @@ stop() {
 	echo -n $"Stopping $PROG_NAME: "
 
 	if ! status -p $PIDFILE $PROG > /dev/null; then
-		echo -n $"$PROG_NAME is not running"
-		failure
+		success
 		echo
-		return 1
+		echo $"$PROG_NAME is not running"
+		return 0
 	fi
 
 	killproc -p $PIDFILE -d $SHUTDOWN_WAIT $PROG
@@ -110,9 +110,9 @@ stop() {
 		echo
 		return 0
     else
-    	echo -n $"Error occurred while $PROG_NAME shutdown."
         failure
         echo
+        echo $"Error occurred while $PROG_NAME shutdown."
         return 1
     fi
 }
